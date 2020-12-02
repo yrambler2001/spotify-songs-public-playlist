@@ -36,7 +36,7 @@
       .toString()
       .padStart(2, '0');
 
-    return `${month}-${day}-${year}`;
+    return `${day}-${month}-${year}`;
   };
   const fetchWithPagination = async url => {
     let next = url;
