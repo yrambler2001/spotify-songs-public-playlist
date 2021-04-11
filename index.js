@@ -70,7 +70,7 @@
     uriOfAllSongsPlaylist = createdPlaylist.id;
   }
 
-  for (const uris of chunk(songs.map((s) => s.track.uri), 100)) {
+  for (const uris of chunk(songs.map((s) => s.track.linked_from?.uri || s.track.uri), 100)) {
     await fetchWithCachePost({
       url: `https://api.spotify.com/v1/playlists/${uriOfAllSongsPlaylist}/tracks`,
       data: { uris, position: null },
