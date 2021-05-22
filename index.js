@@ -1,39 +1,63 @@
+// HOW TO USE:
+// 1. Open developer tools in your browser
+// To open the developer console in Google Chrome, open the Chrome Menu in the upper-right-hand corner of the browser window and select More Tools > Developer Tools. You can also use the shortcut Option + ⌘ + J (on macOS), or Shift + CTRL + J (on Windows/Linux).
+// 2. Open console tab.
+// 3. Copy all the code and paste it into console, press enter.
+// 4. Wait a few seconds.
+// 5. New playlist is created.
+
 (async () => {
-  if (!window.auth_) {
-    throw new Error(
-      `please set auth variable auth_ to look like this:
-      auth_='Bearer BQCA1LtI4pHpk5inoeazauv1m2K7wPOeLVswaA-BFEK_UvmUHOjNS4wqU2Ua7Cjd9Lj35k3Ao70AjZcumjqm5Sq26gTcMIbliAQrMhkcGgAabXuD1NNa0YP7n02qdDmdus4aD2PT9wml_05T93hsb3WX40azRR8VnN-NrMIgMArt1_sMa1rO1s0k-nVNOzpyl_n4PcQwGwIG1nd9cWmAVx6ZuXRhRlIWq_nYsINsga03NpDfrO8IUFqgX6lyuhaKk0za76U-hm986cEaR30qx-e5mFBRKaDwBA2Ojq-4Jaxl7A'
-      you can copy this variable from spotify web player chrome dev tools requests tab
-      `,
-    );
+  // override fetch to automatically get token
+  let token;
+  const fetchOld = window.fetch;
+  const newFetch = function fetch(...args) {
+    if (args?.[1]?.headers?.authorization) {
+      token = args[1].headers.authorization;
+    }
+    return fetchOld.apply(this, args);
+  };
+  window.fetch = newFetch;
+  // trigger fetch to get token
+  try {
+    document.querySelector('nav a.logo').click();
+  } catch (e) {
+    console.log(e);
+    try {
+      document.querySelector('nav ul a').click();
+    } catch (ee) {
+      console.log(ee);
+    }
+  }
+  // wait for fetch to be called
+  for (let i = 0; i < 80 && !token; i++) {
+    await new Promise((res) => window.setTimeout(res), 100);
   }
   window.cache = window.cache || {};
   let cacheEnabled = true;
   const playlistName = 'All my songs';
   const cacheData = async (key, fnForData) => (cacheEnabled && window.cache[key]) || (window.cache[key] = await fnForData());
   const fetchWithCache = async (...params) => cacheData(JSON.stringify(params), () => fetch(...params).then((r) => r.json()));
-  const fetchWithCacheGet = async (url) => fetchWithCache(url, {
-    headers: {
-      accept: 'application/json',
-      authorization: window.auth_,
-    },
-    method: 'GET',
-  });
-  const fetchWithCachePost = async ({ url, data }) => fetchWithCache(url, {
-    headers: {
-      accept: 'application/json',
-      authorization: window.auth_,
-    },
-    body: JSON.stringify(data),
-    method: 'POST',
-  });
+  const fetchWithCacheGet = async (url) =>
+    fetchWithCache(url, {
+      headers: {
+        accept: 'application/json',
+        authorization: token,
+      },
+      method: 'GET',
+    });
+  const fetchWithCachePost = async ({ url, data }) =>
+    fetchWithCache(url, {
+      headers: {
+        accept: 'application/json',
+        authorization: token,
+      },
+      body: JSON.stringify(data),
+      method: 'POST',
+    });
   const getFormattedDate = (date) => {
     const year = date.getFullYear();
     const month = (1 + date.getMonth()).toString().padStart(2, '0');
-    const day = date
-      .getDate()
-      .toString()
-      .padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
 
     return `${day}-${month}-${year}`;
   };
@@ -70,7 +94,10 @@
     uriOfAllSongsPlaylist = createdPlaylist.id;
   }
 
-  for (const uris of chunk(songs.map((s) => s.track.linked_from?.uri || s.track.uri), 100)) {
+  for (const uris of chunk(
+    songs.map((s) => s.track.linked_from?.uri || s.track.uri),
+    100,
+  )) {
     await fetchWithCachePost({
       url: `https://api.spotify.com/v1/playlists/${uriOfAllSongsPlaylist}/tracks`,
       data: { uris, position: null },
